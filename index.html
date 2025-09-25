@@ -1,69 +1,147 @@
 <!doctype html>
-</div>`).join('');
-// Session pins
-const pins = gp.sessions.map(s => `<span class="pin">${s.type} ${fmtTimeOnly(s.start_utc, tz)}</span>`).join(' ');
-el.innerHTML = `<div style="margin:6px 0">${pins}</div><div class="wx-strip">${items}</div>`;
-}catch(e){ el.textContent = 'Weather unavailable right now.'; }
-}
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>F1 Weekend Times — Local & UK Time</title>
+  <meta name="description" content="All Formula 1 weekend session times (Practice, Sprint, Qualifying, Race) auto‑converted to your local timezone with a UK‑time toggle." />
+  <link rel="preload" href="schedule.json" as="fetch" crossorigin="anonymous">
+  <style>
+    :root{--bg:#0b0d10;--card:#14181d;--txt:#e6e9ef;--muted:#9aa3ad;--accent:#ff2a50}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.45 system-ui,Segoe UI,Roboto,Arial}
+    .wrap{max-width:920px;margin:auto;padding:24px}
+    h1{margin:0 0 6px;font-weight:800}
+    .sub{margin:0 0 18px;color:var(--muted)}
+    .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+    select{background:#0f1318;color:var(--txt);border:1px solid #2a3038;border-radius:10px;padding:8px 10px}
+    .card{background:var(--card);border:1px solid #232a33;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+    .grid{display:grid;grid-template-columns:1fr auto auto;gap:6px 12px}
+    .tag{display:inline-block;background:#1b212a;color:#cfe1ff;border:1px solid #2d3a4b;padding:2px 8px;border-radius:999px;font-size:12px}
+    .gp{font-weight:700}
+    .muted{color:var(--muted)}
+    .ad{margin:16px 0;text-align:center}
+    .countdown{font-variant-numeric:tabular-nums}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>F1 Weekend Times</h1>
+    <p class="sub">Practice • Sprint • Qualifying • Race — auto‑converted to your timezone.</p>
 
+    <div class="bar">
+      <span class="muted">Showing times in:</span>
+      <select id="tz">
+        <option value="auto">Your Local Time</option>
+        <option value="Europe/London">UK (Europe/London)</option>
+      </select>
+      <span id="tzLabel" class="tag"></span>
+      <span id="updated" class="muted"></span>
+    </div>
 
-function render(){
-const tz = getTZ();
-tzLabel.textContent = tz === userTZ ? `${tz} (auto)` : tz;
-updated.textContent = data.last_modified ? `Updated ${fmtDate(data.last_modified, tz, {year:'numeric'})}` : '';
+    <div id="nextRace"></div>
 
+    <div class="ad"><!-- AdSense block goes here after approval --></div>
 
-const next = findNextSession(data.rounds);
-const nextGp = next.gp;
-const nextCard = document.createElement('div');
-nextCard.innerHTML = `
-<h2>Next up: ${nextGp.grand_prix}</h2>
-<div class="card">
-<div class="gp">${nextGp.grand_prix} — ${nextGp.country} <span class="tag">Round ${nextGp.round}</span></div>
-<div class="grid" style="margin-top:8px">
-<div class="muted">Session</div><div class="muted">Local</div><div class="muted">UK</div>
-${nextGp.sessions.map(s => `
-<div>${s.type}</div>
-<div>${fmtDate(s.start_utc, tz)}</div>
-<div class="muted">${fmtTimeOnly(s.start_utc, 'Europe/London')} UK</div>
-`).join('')}
-</div>
-<div style="margin-top:10px"><span class="muted">Circuit:</span> ${nextGp.circuit}</div>
-<div style="margin-top:10px">
-<span class="muted">Countdown to next session:</span> <span id="cd" class="countdown"></span>
-</div>
-<details style="margin-top:10px">
-<summary>Weather at ${nextGp.circuit} (hourly, Fri–Sun)</summary>
-<div id="wx-${nextGp.round}" class="muted">Loading weather…</div>
-</details>
-</div>`;
-document.getElementById('nextRace').innerHTML = nextCard.innerHTML;
-const cdEl = document.getElementById('cd');
-const nextStartIso = nextGp.sessions[0].start_utc; // countdown to first upcoming session in that GP
-countdown(nextStartIso, cdEl);
+    <h2>All weekends</h2>
+    <div id="season"></div>
 
+    <p class="muted">Source: official race timetables. Times stored in UTC and converted in your browser. Not affiliated with Formula 1.</p>
+  </div>
 
-document.getElementById('season').innerHTML = data.rounds.map(gp => gpCard(gp, tz)).join('');
+<script>
+(async function(){
+  const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const tzSelect = document.getElementById('tz');
+  const tzLabel  = document.getElementById('tzLabel');
+  const updated  = document.getElementById('updated');
+  const data = await fetch('schedule.json', {cache:'no-store'}).then(r=>r.json());
 
+  const getTZ = () => (tzSelect.value === 'auto' ? userTZ : tzSelect.value);
+  const fmtDate = (iso, tz, opts={}) => new Date(iso).toLocaleString(undefined, Object.assign({
+    timeZone: tz, hour:'2-digit', minute:'2-digit', weekday:'short', month:'short', day:'numeric'
+  }, opts));
+  const fmtTimeOnly = (iso, tz) => new Date(iso).toLocaleTimeString([], {timeZone: tz, hour:'2-digit', minute:'2-digit'});
 
-// Weather: load for next GP immediately; other GPs on demand (when opened) — here we just load next + first click
-loadWeatherFor(nextGp);
+  function findNextSession(rounds){
+    const now = Date.now();
+    const list = [];
+    for(const gp of rounds){
+      for(const s of gp.sessions){ list.push({gp, ...s, ts: Date.parse(s.start_utc)}); }
+    }
+    list.sort((a,b)=>a.ts-b.ts);
+    return list.find(s => s.ts > now) || list[list.length-1];
+  }
 
+  function countdown(targetIso, el){
+    function tick(){
+      const diff = Date.parse(targetIso) - Date.now();
+      if(diff <= 0){ el.textContent = 'Live or completed'; return; }
+      const h = Math.floor(diff/3.6e6);
+      const m = Math.floor((diff%3.6e6)/6e4);
+      const s = Math.floor((diff%6e4)/1000);
+      el.textContent = `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+    tick(); return setInterval(tick, 1000);
+  }
 
-document.querySelectorAll('details summary').forEach(s => {
-s.addEventListener('click', (e) => {
-const wrap = s.parentElement; if(!wrap) return; const id = wrap.querySelector('[id^="wx-"]').id;
-const round = Number(id.split('-')[1]);
-const gp = data.rounds.find(r => r.round === round);
-if(gp && !wrap.dataset.loaded){ loadWeatherFor(gp); wrap.dataset.loaded = '1'; }
-}, { once: true });
-});
-}
+  function gpCard(gp, tz){
+    const local = tz; const uk = 'Europe/London';
+    const rows = gp.sessions.map(s => `
+      <div>${s.type}</div>
+      <div class="muted">${fmtDate(s.start_utc, local)}</div>
+      <div class="muted">${fmtTimeOnly(s.start_utc, uk)} UK</div>
+    `).join('');
 
+    return `
+      <div class="card">
+        <div class="gp">${gp.grand_prix} — ${gp.country} <span class="tag">Round ${gp.round}</span></div>
+        <div class="grid" style="margin-top:8px">
+          <div class="muted">Session</div><div class="muted">Local</div><div class="muted">UK</div>
+          ${rows}
+        </div>
+        <div style="margin-top:10px">
+          <span class="muted">Circuit:</span> ${gp.circuit}
+        </div>
+      </div>`;
+  }
 
-tzSelect.addEventListener('change', () => { localStorage.setItem('tzPref', tzSelect.value); render(); });
-const saved = localStorage.getItem('tzPref'); if(saved) tzSelect.value = saved;
-render();
+  function render(){
+    const tz = getTZ();
+    tzLabel.textContent = tz === userTZ ? `${tz} (auto)` : tz;
+    updated.textContent = data.last_modified ? `Updated ${fmtDate(data.last_modified, tz, {year:'numeric'})}` : '';
+
+    const next = findNextSession(data.rounds);
+    const nextGp = next.gp;
+    const nextCard = document.createElement('div');
+    nextCard.innerHTML = `
+      <h2>Next up: ${nextGp.grand_prix}</h2>
+      <div class="card">
+        <div class="gp">${nextGp.grand_prix} — ${nextGp.country} <span class="tag">Round ${nextGp.round}</span></div>
+        <div class="grid" style="margin-top:8px">
+          <div class="muted">Session</div><div class="muted">Local</div><div class="muted">UK</div>
+          ${nextGp.sessions.map(s => `
+            <div>${s.type}</div>
+            <div>${fmtDate(s.start_utc, tz)}</div>
+            <div class="muted">${fmtTimeOnly(s.start_utc, 'Europe/London')} UK</div>
+          `).join('')}
+        </div>
+        <div style="margin-top:10px"><span class="muted">Circuit:</span> ${nextGp.circuit}</div>
+        <div style="margin-top:10px">
+          <span class="muted">Countdown to next session:</span> <span id="cd" class="countdown"></span>
+        </div>
+      </div>`;
+    document.getElementById('nextRace').innerHTML = nextCard.innerHTML;
+    const cdEl = document.getElementById('cd');
+    const nextStartIso = nextGp.sessions[0].start_utc; // countdown to first upcoming session in that GP
+    countdown(nextStartIso, cdEl);
+
+    document.getElementById('season').innerHTML = data.rounds.map(gp => gpCard(gp, tz)).join('');
+  }
+
+  tzSelect.addEventListener('change', () => { localStorage.setItem('tzPref', tzSelect.value); render(); });
+  const saved = localStorage.getItem('tzPref'); if(saved) tzSelect.value = saved;
+  render();
 })();
 </script>
 </body>
