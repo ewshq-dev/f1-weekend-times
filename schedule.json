@@ -7,29 +7,21 @@
 "grand_prix": "Singapore",
 "country": "Singapore",
 "circuit": "Marina Bay Street Circuit",
-"lat": 1.2914,
-"lon": 103.8631,
-"tz": "Asia/Singapore",
-"race_end_utc": "2025-10-05T14:00:00Z",
 "sessions": [
-{"type": "FP1", "start_utc": "2025-10-03T10:30:00Z", "end_utc": "2025-10-03T11:30:00Z"},
-{"type": "Qualifying", "start_utc": "2025-10-04T13:00:00Z", "end_utc": "2025-10-04T14:00:00Z"},
-{"type": "Race", "start_utc": "2025-10-05T12:00:00Z", "end_utc": "2025-10-05T14:00:00Z"}
+{"type": "FP1", "start_utc": "2025-10-03T09:30:00Z"},
+{"type": "Qualifying", "start_utc": "2025-10-04T13:00:00Z"},
+{"type": "Race", "start_utc": "2025-10-05T12:00:00Z"}
 ]
 },
 {
 "round": 19,
 "grand_prix": "United States",
 "country": "USA",
-"circuit": "Circuit of the Americas",
-"lat": 30.1346,
-"lon": -97.6359,
-"tz": "America/Chicago",
-"race_end_utc": "2025-10-19T21:00:00Z",
+"circuit": "Circuit of The Americas",
 "sessions": [
-{"type": "FP1", "start_utc": "2025-10-17T18:30:00Z", "end_utc": "2025-10-17T19:30:00Z"},
-{"type": "Sprint", "start_utc": "2025-10-18T22:30:00Z", "end_utc": "2025-10-18T23:30:00Z"},
-{"type": "Race", "start_utc": "2025-10-19T19:00:00Z", "end_utc": "2025-10-19T21:00:00Z"}
+{"type": "FP1", "start_utc": "2025-10-17T15:30:00Z"},
+{"type": "Sprint", "start_utc": "2025-10-18T15:00:00Z"},
+{"type": "Race", "start_utc": "2025-10-19T17:00:00Z"}
 ]
 }
 ]
