@@ -1,0 +1,70 @@
+<!doctype html>
+</div>`).join('');
+// Session pins
+const pins = gp.sessions.map(s => `<span class="pin">${s.type} ${fmtTimeOnly(s.start_utc, tz)}</span>`).join(' ');
+el.innerHTML = `<div style="margin:6px 0">${pins}</div><div class="wx-strip">${items}</div>`;
+}catch(e){ el.textContent = 'Weather unavailable right now.'; }
+}
+
+
+function render(){
+const tz = getTZ();
+tzLabel.textContent = tz === userTZ ? `${tz} (auto)` : tz;
+updated.textContent = data.last_modified ? `Updated ${fmtDate(data.last_modified, tz, {year:'numeric'})}` : '';
+
+
+const next = findNextSession(data.rounds);
+const nextGp = next.gp;
+const nextCard = document.createElement('div');
+nextCard.innerHTML = `
+<h2>Next up: ${nextGp.grand_prix}</h2>
+<div class="card">
+<div class="gp">${nextGp.grand_prix} — ${nextGp.country} <span class="tag">Round ${nextGp.round}</span></div>
+<div class="grid" style="margin-top:8px">
+<div class="muted">Session</div><div class="muted">Local</div><div class="muted">UK</div>
+${nextGp.sessions.map(s => `
+<div>${s.type}</div>
+<div>${fmtDate(s.start_utc, tz)}</div>
+<div class="muted">${fmtTimeOnly(s.start_utc, 'Europe/London')} UK</div>
+`).join('')}
+</div>
+<div style="margin-top:10px"><span class="muted">Circuit:</span> ${nextGp.circuit}</div>
+<div style="margin-top:10px">
+<span class="muted">Countdown to next session:</span> <span id="cd" class="countdown"></span>
+</div>
+<details style="margin-top:10px">
+<summary>Weather at ${nextGp.circuit} (hourly, Fri–Sun)</summary>
+<div id="wx-${nextGp.round}" class="muted">Loading weather…</div>
+</details>
+</div>`;
+document.getElementById('nextRace').innerHTML = nextCard.innerHTML;
+const cdEl = document.getElementById('cd');
+const nextStartIso = nextGp.sessions[0].start_utc; // countdown to first upcoming session in that GP
+countdown(nextStartIso, cdEl);
+
+
+document.getElementById('season').innerHTML = data.rounds.map(gp => gpCard(gp, tz)).join('');
+
+
+// Weather: load for next GP immediately; other GPs on demand (when opened) — here we just load next + first click
+loadWeatherFor(nextGp);
+
+
+document.querySelectorAll('details summary').forEach(s => {
+s.addEventListener('click', (e) => {
+const wrap = s.parentElement; if(!wrap) return; const id = wrap.querySelector('[id^="wx-"]').id;
+const round = Number(id.split('-')[1]);
+const gp = data.rounds.find(r => r.round === round);
+if(gp && !wrap.dataset.loaded){ loadWeatherFor(gp); wrap.dataset.loaded = '1'; }
+}, { once: true });
+});
+}
+
+
+tzSelect.addEventListener('change', () => { localStorage.setItem('tzPref', tzSelect.value); render(); });
+const saved = localStorage.getItem('tzPref'); if(saved) tzSelect.value = saved;
+render();
+})();
+</script>
+</body>
+</html>
